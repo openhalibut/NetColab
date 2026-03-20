@@ -15,7 +15,7 @@ export interface ChatMessage {
   userId: string;
   content: string;
   timestamp: Date;
-  type: "user" | "ai";
+  type: "user" | "ai" | "queued";
   model?: AIModel;
 }
 
