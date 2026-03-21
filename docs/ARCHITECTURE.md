@@ -76,14 +76,14 @@ NetColab is a **collaborative agentic workspace** where multiple users share a r
 | Layer | Choice | Reason |
 |-------|--------|--------|
 | Runtime | Node.js 22 (LTS) | Same ecosystem as frontend; large package ecosystem |
-| Framework | **Hono** | TypeScript-first, fast, minimal; runs on Node/Bun/edge workers |
+| Framework | **Hono** | TypeScript-first, fast, minimal; runs on Node.js HTTP server (note: Socket.io requires a raw Node HTTP server — edge/serverless deployment is not possible with this stack) |
 | WebSockets | **Socket.io** | Rooms, namespaces, reconnection, presence broadcast built-in |
 | Database | **PostgreSQL 16** | Relational integrity for rooms/messages/users; JSONB for flexible metadata |
 | ORM | **Drizzle ORM** | TypeScript-native, schema-as-code, lightweight, great DX |
 | Cache / PubSub | **Redis** | Real-time pub/sub for cross-instance message broadcast; session store; presence TTL |
-| Auth | **JWT + refresh tokens** | Stateless; pairs well with Redis-backed refresh token revocation |
-| AI routing | Per-SDK calls | Anthropic SDK, OpenAI SDK, Google Generative AI SDK |
-| Package manager | npm (existing) or Bun | Bun compatible with existing setup |
+| Auth | **JWT + refresh tokens** | Access tokens are stateless (short-lived, 15 min); refresh tokens are stored in Redis for revocation support |
+| AI routing | **Anthropic SDK + OpenAI SDK + Google Generative AI SDK** | One SDK per provider; routed by model identifier in request |
+| Package manager | **npm** (existing) | Consistent with frontend; Bun can be adopted later if performance warrants it |
 
 ### Infrastructure
 | Concern | Choice |
@@ -105,8 +105,8 @@ CREATE TABLE users (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email       TEXT UNIQUE NOT NULL,
   name        TEXT NOT NULL,
-  avatar      TEXT NOT NULL,           -- single letter or image URL
-  color       TEXT NOT NULL,           -- cyan | pink | amber | violet | green
+  avatar      TEXT,                    -- image URL; NULL means use generated initials fallback
+  color       TEXT NOT NULL CHECK (color IN ('cyan', 'pink', 'amber', 'violet', 'green')),
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 
@@ -135,7 +135,8 @@ CREATE TABLE messages (
   user_id     UUID REFERENCES users(id),       -- NULL for ai messages
   content     TEXT NOT NULL,
   type        TEXT NOT NULL CHECK (type IN ('user', 'ai', 'queued')),
-  model       TEXT,                            -- ai model identifier
+  -- 'queued' means staged but not yet sent to AI; becomes 'user' input context after flush
+  model       TEXT,                            -- ai model identifier (e.g. "claude-sonnet-4-5")
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 
@@ -144,8 +145,9 @@ CREATE TABLE versions (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   room_id     UUID NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
   user_id     UUID NOT NULL REFERENCES users(id),
-  action      TEXT NOT NULL,
-  message_id  UUID REFERENCES messages(id),
+  action      TEXT NOT NULL CHECK (action IN ('message_sent', 'message_queued', 'flush', 'participant_joined', 'participant_removed', 'room_updated')),
+  message_id  UUID REFERENCES messages(id) ON DELETE SET NULL,  -- SET NULL, not CASCADE, to preserve audit history
+  snapshot    TEXT,           -- optional JSON snapshot of message content at time of action
   created_at  TIMESTAMPTZ DEFAULT now()
 );
 
@@ -241,21 +243,25 @@ Events (client → server):
 The AI Proxy routes requests to the correct provider SDK based on the `model` field:
 
 ```
-model: "claude-4"         → Anthropic SDK  (claude-sonnet-4-6 or opus)
-model: "gpt-5"            → OpenAI SDK
-model: "gpt-5-mini"       → OpenAI SDK
-model: "gemini-2.5-flash" → Google Generative AI SDK
-model: "gemini-2.5-pro"   → Google Generative AI SDK
+model: "claude-sonnet-4-5"  → Anthropic SDK
+model: "claude-opus-4-5"    → Anthropic SDK
+model: "gpt-5"              → OpenAI SDK
+model: "gpt-5-mini"         → OpenAI SDK
+model: "gemini-2.5-flash"   → Google Generative AI SDK
+model: "gemini-2.5-pro"     → Google Generative AI SDK
 ```
 
-Responses are streamed as **Server-Sent Events (SSE)** or via WebSocket chunks back to the room. All AI API keys are held server-side only — never exposed to the client.
+Responses are streamed as **Server-Sent Events (SSE)** from the `/ai/complete` endpoint to the requesting client. The server then broadcasts the completed (or chunk-by-chunk) AI response to all room members over the existing Socket.io room channel so every participant sees the output in real time. Streaming chunks should be buffered server-side if broadcasting per-chunk to avoid overwhelming Socket.io under high-throughput models.
 
 ### Batch (flush) flow
 1. Client calls `POST /rooms/:id/flush`
-2. Server loads all `type=queued` messages for the room
+2. Server loads all `type=queued` messages for the room, sorted by `created_at`
 3. Concatenates content with user attribution: `[UserA]: prompt1\n\n[UserB]: prompt2`
-4. Sends combined context to selected model
-5. Saves AI response, broadcasts `message:new` to room
+4. **Check combined token count against the selected model's context window limit before sending.** If over the limit, return a 422 with a descriptive error rather than letting the provider reject it.
+5. Sends combined context to selected model
+6. Saves AI response as a new `type=ai` message; records a `flush` audit entry in `versions`
+7. Broadcasts `message:new` (AI response) to all room members via Socket.io
+8. **Failure handling:** wrap steps 5–6 in a database transaction. If the AI call fails, no partial records are written; the queued messages remain intact for retry.
 
 ---
 
@@ -303,8 +309,11 @@ NetColab/
 │   └── ARCHITECTURE.md     # This file
 │
 ├── docker-compose.yml      # Local dev: postgres + redis
-└── .env.example
+├── .env.example
+└── package.json            # Root-level npm workspaces config (shared types between frontend and backend)
 ```
+
+> **Shared types:** Define a `packages/shared` (or `server/src/types`) package exported via npm workspaces so that the frontend and backend can import the same TypeScript interfaces for API request/response payloads and Socket.io event payloads. This prevents type drift between the two layers.
 
 ---
 
@@ -351,7 +360,7 @@ NetColab/
 | Horizontal scaling | Stateless API servers; Redis adapter for Socket.io |
 | AI cost control | Rate limit AI calls per room per minute; queue depth cap |
 | Message volume | Cursor-based pagination; archive old messages to cold storage |
-| DB connections | Connection pooling via PgBouncer or Drizzle's built-in pooling |
+| DB connections | Connection pooling via PgBouncer or the underlying `postgres.js` driver's built-in pool (Drizzle itself does not provide pooling) |
 | Real-time load | Redis pub/sub decouples message fan-out from API servers |
 
 ---
@@ -365,3 +374,52 @@ NetColab/
 - Rate limiting: 60 req/min per IP, 10 AI calls/min per room
 - CORS restricted to known frontend origin
 - HTTPS enforced in production
+
+---
+
+## Potential Challenges & Points to Notice
+
+### 1. Hono + Socket.io Integration
+Hono is designed around a request/response model and does not natively manage a raw `http.Server`. Socket.io requires control of the underlying Node.js `http.Server` to upgrade HTTP connections to WebSockets. You must create the `http.Server` explicitly, attach Hono as the request handler, and pass the same server instance to `new Server(httpServer)`. Deploying Hono to edge workers (Cloudflare Workers) is therefore **incompatible** with Socket.io — serverless/edge deployment must be ruled out for any instance running the WebSocket server.
+
+### 2. AI Streaming: SSE vs. WebSocket Fan-out
+The `/ai/complete` endpoint streams via SSE to the requesting client, but all room participants need to see the AI response live. The server must act as a relay: consume the SSE stream from the AI provider, buffer or forward chunks, and broadcast them over the Socket.io room channel. Decide early whether to:
+- Broadcast each token chunk (low latency but high Socket.io message rate)
+- Buffer into sentences / flush intervals (smoother UX, slightly higher latency)
+
+Without this relay design the non-requesting participants only see the AI response after it is fully saved.
+
+### 3. Batch Flush: Context Window Limits
+The flush flow concatenates all queued messages into a single prompt. Large rooms with many queued messages can easily exceed an AI model's context window (e.g. GPT-4o: 128k tokens, Gemini 2.5 Pro: 1M tokens, Claude: 200k tokens). Without explicit token counting (using `tiktoken` or provider-specific counting APIs) before the API call, the server will receive a cryptic provider error at runtime. Add a token budget check and return a user-friendly error or prompt the user to reduce the queue.
+
+### 4. Presence Heartbeat vs. TTL Timing
+The presence TTL is set to 30 seconds and the heartbeat fires every 20 seconds. A single missed heartbeat (due to a brief network stall) leaves only 10 seconds before the TTL expires, causing a false `presence:leave` event. Recommendations:
+- Increase the TTL to at least 3× the heartbeat interval (e.g. 60 s TTL / 20 s heartbeat)
+- On reconnect, re-broadcast `presence:join` to reconcile state
+
+### 5. Multi-Instance Presence Race Conditions
+When a user is connected to instance A and their TCP connection drops, instance A fires `presence:leave`. If the client simultaneously reconnects to instance B, both events travel through Redis pub/sub. Without a distributed lock or a reconciliation step (check Redis presence key before broadcasting leave), clients in the room can see a spurious leave/rejoin flicker. Use a small delay (e.g. 2–3 s) before broadcasting `presence:leave` and cancel it if a new connection for the same `userId`/`roomId` appears.
+
+### 6. Audit Trail Integrity on Message Deletion
+The `versions` table references `messages(id)` with `ON DELETE SET NULL` (after the schema fix above). However, the full content of deleted messages is then lost from the audit trail. If regulatory or collaborative-replay requirements exist, store a `snapshot TEXT` column in `versions` to capture the message content at the time of the action. This is already reflected in the schema above.
+
+### 7. `last_activity` Update Pattern in `rooms`
+The `last_activity` column must be kept up-to-date on every new message insert. Without a PostgreSQL trigger, the application must issue a separate `UPDATE rooms SET last_activity = now() WHERE id = $roomId` alongside every `INSERT INTO messages`. Consider adding a trigger to enforce this automatically and avoid drift if a direct DB insert bypasses the application layer.
+
+### 8. No OAuth / Social Login
+The current auth design only covers email + password. Most users expect "Sign in with Google" (or GitHub). Retrofitting OAuth after the auth service is built is non-trivial: the `users` table needs a `provider` and `provider_id` column, and the JWT flow changes. Plan the schema for it from Phase 1 even if the UI for it ships in Phase 5.
+
+### 9. WebSocket Rate Limiting
+REST endpoints are rate-limited but Socket.io events (`message:send`, `message:queue`) are not. A compromised or buggy client can flood the room with hundreds of events per second. Add per-socket rate limiting in the Socket.io middleware layer (e.g. `socket-ratelimiter` or a simple Redis counter keyed by `userId`).
+
+### 10. Shared Types Between Frontend and Backend
+As the API grows, request/response payload types and Socket.io event shapes will be duplicated across `src/` (frontend) and `server/src/` (backend). Introduce an npm workspace (root `package.json` with `"workspaces": ["src", "server", "packages/shared"]`) and a `packages/shared` module from the start to keep types in sync.
+
+### 11. Testing Strategy Gap
+Phases 1–5 define no unit or integration tests. E2E tests in Phase 6 will catch regression too late. Recommendation:
+- Add unit tests for services (auth, AI routing, queue logic) from Phase 1 using Vitest
+- Add integration tests for REST endpoints (using `supertest` or Hono's test helpers) from Phase 2
+- Reserve Playwright E2E for Phase 6
+
+### 12. Model Identifier Fragility
+The `model` column stores free-text identifiers (e.g. `"gpt-5"`). If a model is renamed or versioned by its provider, historical records will reference an identifier that no longer resolves. Consider pinning to canonical, versioned identifiers (e.g. `"claude-sonnet-4-5-20250915"`) and maintaining a mapping table or config file for display names.
