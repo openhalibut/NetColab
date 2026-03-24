@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,52 +6,52 @@
 
 @layer base {
   :root {
-    --background: 228 12% 8%;
-    --foreground: 220 20% 92%;
+    --background: 220 23% 97%;
+    --foreground: 222 26% 18%;
 
-    --card: 228 12% 11%;
-    --card-foreground: 220 20% 92%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 26% 18%;
 
-    --popover: 228 12% 13%;
-    --popover-foreground: 220 20% 92%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 26% 18%;
 
-    --primary: 165 80% 48%;
-    --primary-foreground: 228 12% 8%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 228 12% 16%;
-    --secondary-foreground: 220 20% 80%;
+    --secondary: 220 20% 94%;
+    --secondary-foreground: 222 26% 18%;
 
-    --muted: 228 10% 18%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 220 20% 95%;
+    --muted-foreground: 220 10% 46%;
 
-    --accent: 262 70% 60%;
-    --accent-foreground: 220 20% 95%;
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 55%;
-    --destructive-foreground: 220 20% 95%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 228 10% 18%;
-    --input: 228 10% 20%;
-    --ring: 165 80% 48%;
+    --border: 220 16% 88%;
+    --input: 220 16% 88%;
+    --ring: 217 91% 60%;
 
     --radius: 0.75rem;
 
     /* User colors */
-    --user-cyan: 185 80% 55%;
-    --user-pink: 330 80% 60%;
-    --user-amber: 38 90% 55%;
-    --user-violet: 262 70% 60%;
-    --user-green: 145 65% 50%;
+    --user-cyan: 194 94% 58%;
+    --user-pink: 338 89% 67%;
+    --user-amber: 38 95% 58%;
+    --user-violet: 267 82% 67%;
+    --user-green: 147 78% 46%;
 
     /* Sidebar */
-    --sidebar-background: 228 12% 6%;
-    --sidebar-foreground: 220 20% 80%;
-    --sidebar-primary: 165 80% 48%;
-    --sidebar-primary-foreground: 228 12% 8%;
-    --sidebar-accent: 228 12% 14%;
-    --sidebar-accent-foreground: 220 20% 92%;
-    --sidebar-border: 228 10% 15%;
-    --sidebar-ring: 165 80% 48%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 26% 18%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 95%;
+    --sidebar-accent-foreground: 222 26% 18%;
+    --sidebar-border: 220 16% 88%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -61,10 +61,16 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Manrope', system-ui, sans-serif;
+    min-height: 100vh;
   }
   code, .font-mono {
     font-family: 'JetBrains Mono', monospace;
+  }
+
+  ::selection {
+    background: rgba(59, 130, 246, 0.18);
+    color: hsl(var(--foreground));
   }
 }
 
@@ -73,10 +79,10 @@
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: hsl(var(--background));
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 
@@ -86,3 +92,24 @@
 .user-color-amber { --user-color: var(--user-amber); }
 .user-color-violet { --user-color: var(--user-violet); }
 .user-color-green { --user-color: var(--user-green); }
+
+@layer components {
+  .surface-panel {
+    background: white;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.04);
+  }
+
+  .poster-stage {
+    background-image:
+      linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(248, 250, 252, 1));
+  }
+
+  .font-display {
+    font-family: 'Manrope', system-ui, sans-serif;
+  }
+
+  .cursor-glow {
+    filter: drop-shadow(0 8px 14px rgba(15, 23, 42, 0.12));
+  }
+}

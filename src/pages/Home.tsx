@@ -1,157 +1,154 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { MOCK_ROOMS, ChatRoom } from "@/data/chatRooms";
-import { MOCK_USERS } from "@/data/mockData";
-import { USER_COLORS } from "@/types/chat";
-import { Plus, MessageSquare, Share2, Clock, Users, Search } from "lucide-react";
 import { motion } from "framer-motion";
-import { formatDistanceToNow } from "date-fns";
+import { ArrowRight, Clock3, Layers3, Plus, Search, Sparkles, Users } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+const ROOM_CARDS = [
+  {
+    id: "room-1",
+    title: "Spring Campaign Poster",
+    summary: "Sarah and Marcus are drafting a shared prompt for a campus event poster.",
+    updatedAt: "Edited 2 min ago",
+    members: "3 people",
+  },
+  {
+    id: "room-2",
+    title: "Product Launch Messaging",
+    summary: "The team is collecting copy angles before sending one combined request to AI.",
+    updatedAt: "Edited 19 min ago",
+    members: "5 people",
+  },
+  {
+    id: "room-3",
+    title: "Research Notes Synthesis",
+    summary: "A shared room for turning scattered notes into one structured summary prompt.",
+    updatedAt: "Edited 1 hr ago",
+    members: "4 people",
+  },
+];
 
 export default function Home() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const currentUser = MOCK_USERS[0];
 
-  const filtered = MOCK_ROOMS.filter((r) =>
-    r.title.toLowerCase().includes(search.toLowerCase())
+  const filtered = ROOM_CARDS.filter((room) =>
+    room.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleShare = (e: React.MouseEvent, room: ChatRoom) => {
-    e.stopPropagation();
-    const url = `${window.location.origin}/chat/${room.id}`;
-    navigator.clipboard.writeText(url);
-    // Could use toast here
-  };
-
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center justify-between">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto max-w-[1320px] px-4 py-6 sm:px-6 lg:px-8">
+        <header className="mb-6 flex flex-col gap-4 rounded-[20px] border border-border bg-card px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15">
-              <MessageSquare className="h-5 w-5 text-primary" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+              <Layers3 className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-base font-semibold text-foreground">Collab AI</h1>
-              <p className="text-xs text-muted-foreground">Multiplayer AI workspace</p>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">NetColab</h1>
+              <p className="text-sm text-muted-foreground">Shared AI rooms</p>
             </div>
           </div>
+
           <div className="flex items-center gap-3">
-            <div
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-background ${USER_COLORS[currentUser.color]}`}
-            >
-              {currentUser.avatar}
+            <div className="relative w-full sm:w-80">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search rooms"
+                className="w-full rounded-xl border border-border bg-background py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
+              />
             </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Content */}
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-        {/* Top bar */}
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-foreground">Your Workspaces</h2>
-            <p className="text-sm text-muted-foreground">
-              {MOCK_ROOMS.length} shared conversations
-            </p>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate("/chat/room-1")}
-            className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            New Workspace
-          </motion.button>
-        </div>
-
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search workspaces..."
-            className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
-
-        {/* Room grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((room, i) => (
-            <motion.div
-              key={room.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              onClick={() => navigate(`/chat/${room.id}`)}
-              className="group cursor-pointer rounded-2xl border border-border bg-card p-5 transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
+            <button
+              onClick={() => navigate("/chat/room-1")}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary/90"
             >
-              <div className="mb-3 flex items-start justify-between">
-                <span className="text-2xl">{room.emoji}</span>
-                <button
-                  onClick={(e) => handleShare(e, room)}
-                  className="rounded-lg p-1.5 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100"
-                  title="Copy invite link"
+              <Plus className="h-4 w-4" />
+              New room
+            </button>
+          </div>
+        </header>
+
+        <main className="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
+          <section className="rounded-[20px] border border-border bg-card">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="text-base font-semibold text-foreground">Recent rooms</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Open a room and keep prompting together in the same thread.</p>
+            </div>
+
+            <div className="divide-y divide-border">
+              {filtered.map((room, index) => (
+                <motion.button
+                  key={room.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => navigate(`/chat/${room.id}`)}
+                  className="flex w-full items-start justify-between gap-4 px-5 py-5 text-left transition hover:bg-muted/45"
                 >
-                  <Share2 className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              <h3 className="mb-1 text-sm font-semibold text-foreground">{room.title}</h3>
-
-              <div className="mb-4 flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  {formatDistanceToNow(room.lastActivity, { addSuffix: true })}
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageSquare className="h-3 w-3" />
-                  {room.messageCount}
-                </span>
-              </div>
-
-              {/* Participant avatars */}
-              <div className="flex items-center justify-between">
-                <div className="flex -space-x-1.5">
-                  {room.participants.slice(0, 4).map((user) => (
-                    <div
-                      key={user.id}
-                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 border-card text-[9px] font-bold text-background ${USER_COLORS[user.color]}`}
-                    >
-                      {user.avatar}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base font-medium text-foreground">{room.title}</h3>
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+                        Active
+                      </span>
                     </div>
-                  ))}
-                  {room.participants.length > 4 && (
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[9px] font-medium text-muted-foreground">
-                      +{room.participants.length - 4}
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{room.summary}</p>
+                    <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock3 className="h-3.5 w-3.5" />
+                        {room.updatedAt}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
+                        {room.members}
+                      </span>
                     </div>
-                  )}
+                  </div>
+
+                  <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                </motion.button>
+              ))}
+            </div>
+          </section>
+
+          <aside className="space-y-4">
+            <div className="rounded-[20px] border border-border bg-card p-5">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Shared workflow
+              </div>
+              <div className="mt-4 space-y-3">
+                <div className="rounded-2xl bg-muted/55 p-4">
+                  <p className="text-sm font-medium text-foreground">Live presence</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    See who is in the room and where they are working.
+                  </p>
                 </div>
-                <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  {room.participants.length}
-                </span>
+                <div className="rounded-2xl bg-muted/55 p-4">
+                  <p className="text-sm font-medium text-foreground">Pending queue</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Collect multiple prompts before sending one combined request.
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-muted/55 p-4">
+                  <p className="text-sm font-medium text-foreground">Shared history</p>
+                  <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                    Track who added prompts, flushed the queue, and reviewed the result.
+                  </p>
+                </div>
               </div>
-            </motion.div>
-          ))}
+            </div>
 
-          {/* Create new card */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: filtered.length * 0.05 }}
-            onClick={() => navigate("/chat/room-1")}
-            className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border p-8 text-muted-foreground transition-all hover:border-primary/40 hover:text-primary"
-          >
-            <Plus className="mb-2 h-8 w-8" />
-            <span className="text-sm font-medium">Start new workspace</span>
-          </motion.div>
-        </div>
-      </main>
+            <div className="rounded-[20px] border border-border bg-card p-5">
+              <p className="text-sm font-medium text-foreground">Today</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                8 rooms active, 23 prompts added, 6 batches sent to AI.
+              </p>
+            </div>
+          </aside>
+        </main>
+      </div>
     </div>
   );
 }
