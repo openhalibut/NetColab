@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, Clock3, Layers3, Plus, Search, Sparkles, Users } from "lucide-react";
+import { ArrowRight, ChevronDown, Clock3, Layers3, Plus, Search, Sparkles, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const ROOM_CARDS = [
@@ -65,6 +65,19 @@ export default function Home() {
             >
               <Plus className="h-4 w-4" />
               New room
+            </button>
+            <button
+              className="inline-flex items-center gap-3 rounded-xl border border-border bg-background px-2.5 py-1.5 text-left transition hover:border-primary/30"
+              aria-label="Account profile"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                ZJ
+              </div>
+              <div className="hidden min-w-0 sm:block">
+                <p className="max-w-[140px] truncate text-sm font-medium text-foreground">Jiayi Zhang</p>
+                <p className="max-w-[140px] truncate text-xs text-muted-foreground">jiayi@netcolab.ai</p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </button>
           </div>
         </header>
